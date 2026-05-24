@@ -40,6 +40,12 @@ When a batch contains many queued links, the app shows a rate-limit warning. The
 
 The current build assumes Homebrew-style Apple Silicon paths for `yt-dlp` and `ffmpeg`.
 
+If you do not already have them, install [Homebrew](https://brew.sh/) first, then run:
+
+```bash
+brew install yt-dlp ffmpeg
+```
+
 ## Build And Run
 
 Use the project script:
