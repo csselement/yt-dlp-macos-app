@@ -164,6 +164,14 @@ private struct QueuePanel: View {
 
             Divider()
 
+            if let warning = store.rateLimitWarning {
+                RateLimitWarningView(message: warning)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+
+                Divider()
+            }
+
             if store.items.isEmpty {
                 ContentUnavailableView(
                     "No Links Queued",
@@ -181,6 +189,31 @@ private struct QueuePanel: View {
                 }
                 .listStyle(.inset)
             }
+        }
+    }
+}
+
+private struct RateLimitWarningView: View {
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .frame(width: 18)
+
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.orange.opacity(0.35), lineWidth: 1)
         }
     }
 }

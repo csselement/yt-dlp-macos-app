@@ -5,6 +5,11 @@ import Observation
 @MainActor
 @Observable
 final class DownloaderStore {
+    static let moderateBatchWarningCount = 10
+    static let highBatchWarningCount = 25
+    static let minimumCooldownSeconds: UInt64 = 8
+    static let maximumCooldownSeconds: UInt64 = 18
+
     var pendingText = ""
     var items: [DownloadItem] = []
     var selectedFolder: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSHomeDirectory())
@@ -25,6 +30,20 @@ final class DownloaderStore {
         return "\(ytdlp) · \(ffmpeg)"
     }
 
+    var rateLimitWarning: String? {
+        let remainingCount = items.filter { $0.status != .finished }.count
+
+        if remainingCount >= Self.highBatchWarningCount {
+            return "High rate-limit risk: \(remainingCount) queued links. The app downloads sequentially with cooldowns, but large batches from the same site can still be throttled."
+        }
+
+        if remainingCount >= Self.moderateBatchWarningCount {
+            return "Rate-limit caution: \(remainingCount) queued links. Downloads are slowed automatically to reduce platform throttling risk."
+        }
+
+        return nil
+    }
+
     func addLinks(kind: DownloadKind) {
         let links = pendingText
             .components(separatedBy: .newlines)
@@ -40,7 +59,11 @@ final class DownloaderStore {
 
         items.append(contentsOf: newItems)
         pendingText = ""
-        globalMessage = newItems.isEmpty ? "No new links added" : "Added \(newItems.count) link\(newItems.count == 1 ? "" : "s")"
+        if let rateLimitWarning {
+            globalMessage = rateLimitWarning
+        } else {
+            globalMessage = newItems.isEmpty ? "No new links added" : "Added \(newItems.count) link\(newItems.count == 1 ? "" : "s")"
+        }
     }
 
     func removeItems(at offsets: IndexSet) {
@@ -114,7 +137,7 @@ final class DownloaderStore {
             return
         }
 
-        for index in queueIndices {
+        for (position, index) in queueIndices.enumerated() {
             guard !Task.isCancelled else { return }
             items[index].status = .running
             items[index].log = ""
@@ -128,6 +151,11 @@ final class DownloaderStore {
                 items[index].status = .failed(error.localizedDescription)
                 items[index].log += "\n\(error.localizedDescription)"
             }
+
+            let hasMoreItems = position < queueIndices.count - 1
+            if hasMoreItems && isRunning {
+                await cooldownBeforeNextDownload()
+            }
         }
 
         globalMessage = "Batch complete"
@@ -138,6 +166,17 @@ final class DownloaderStore {
             executablePath: ytDLPPath,
             arguments: arguments(for: item)
         )
+    }
+
+    private func cooldownBeforeNextDownload() async {
+        let seconds = UInt64.random(in: Self.minimumCooldownSeconds...Self.maximumCooldownSeconds)
+        globalMessage = "Cooling down for \(seconds)s to reduce rate-limit risk"
+
+        do {
+            try await Task.sleep(for: .seconds(seconds))
+        } catch {
+            globalMessage = "Cooldown interrupted"
+        }
     }
 }
 
@@ -188,6 +227,11 @@ private extension DownloaderStore {
             "--no-playlist",
             "--newline",
             "--restrict-filenames",
+            "--sleep-requests", "1.5",
+            "--sleep-interval", "8",
+            "--max-sleep-interval", "18",
+            "--retry-sleep", "http:exp=5:60",
+            "--retry-sleep", "fragment:exp=2:20",
             "-o", outputTemplate
         ]
 

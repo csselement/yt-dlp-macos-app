@@ -23,6 +23,12 @@ The download settings are intentionally hardcoded:
 
 There are no user-facing codec, container, bitrate, or quality settings. This keeps the app straightforward and produces files that are broadly compatible with media players, editors, and sharing workflows.
 
+## Rate-Limit Safeguards
+
+The app downloads batch items sequentially and adds cooldown time between downloads to reduce the chance of platform throttling. It also passes conservative sleep and retry settings to `yt-dlp`.
+
+When a batch contains many queued links, the app shows a rate-limit warning. These safeguards reduce risk, but they cannot guarantee that YouTube or another platform will not throttle, block, or challenge automated download traffic.
+
 ## Requirements
 
 - macOS 14 or newer
@@ -73,6 +79,7 @@ To create a release zip locally:
 ## Limitations
 
 - Download behavior depends on `yt-dlp` support for each website.
+- Large batches may still trigger platform rate limits, throttling, login prompts, or temporary blocks.
 - Some sites may require cookies, login, or additional `yt-dlp` options that this MVP does not expose.
 - The app does not provide per-link quality controls.
 - The app does not currently show detailed progress percentages per item.
