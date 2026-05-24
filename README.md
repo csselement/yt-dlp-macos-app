@@ -2,6 +2,8 @@
 
 BatchDownloader is a minimal native macOS app for batch downloading social media video and audio with `yt-dlp` and `ffmpeg`.
 
+![BatchDownloader example UI](docs/images/batchdownloader-ui.png)
+
 The app is designed for a simple workflow:
 
 1. Paste one or more links, one per line.
