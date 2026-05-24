@@ -52,6 +52,24 @@ The script stages a native app bundle at:
 dist/BatchDownloader.app
 ```
 
+## Downloadable Builds
+
+Prebuilt binaries are published on the GitHub Releases page when available:
+
+```text
+https://github.com/csselement/yt-dlp-macos-app/releases
+```
+
+The release asset is a zipped macOS app. Unzip it, move `BatchDownloader.app` to Applications if desired, and launch it.
+
+Current binaries are ad-hoc signed but not Apple Developer ID notarized. macOS may show a Gatekeeper warning the first time the app is opened.
+
+To create a release zip locally:
+
+```bash
+./script/package_release.sh 0.1.0
+```
+
 ## Limitations
 
 - Download behavior depends on `yt-dlp` support for each website.
