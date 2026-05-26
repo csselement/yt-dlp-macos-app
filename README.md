@@ -1,8 +1,8 @@
-# BatchDownloader
+# ClipBatch
 
-BatchDownloader is a minimal native macOS app for batch downloading social media video and audio with `yt-dlp` and `ffmpeg`.
+ClipBatch is a minimal native macOS app for batch downloading social media video and audio with `yt-dlp` and `ffmpeg`.
 
-![BatchDownloader example UI](docs/images/batchdownloader-ui.png)
+![ClipBatch example UI](docs/images/batchdownloader-ui.png)
 
 The app is designed for a simple workflow:
 
@@ -71,7 +71,7 @@ dist/BatchDownloader.app
 Prebuilt binaries are published on the GitHub Releases page when available:
 
 ```text
-https://github.com/csselement/yt-dlp-macos-app/releases
+https://github.com/csselement/clipbatch/releases
 ```
 
 The release asset is a zipped macOS app. Unzip it, move `BatchDownloader.app` to Applications if desired, and launch it.
