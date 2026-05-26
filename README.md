@@ -38,6 +38,7 @@ If YouTube or another site returns a bot-check, login challenge, or rate-limit e
 
 - Add links manually or import one-link-per-line `.txt` files from the File menu.
 - The link editor moves to a new line after pasted links to speed up list entry.
+- YouTube playlist URLs are supported when the link includes a `list=` playlist parameter.
 - Active downloads show progress percentage and a compact title/thumbnail when that metadata is available from the current download.
 - Stop Batch cancels the active download and prevents the queue from advancing to the next item.
 - File > Stop Batch also cancels an active batch.
@@ -103,4 +104,4 @@ To create a release zip locally:
 - The app does not provide per-link quality controls.
 - The app shows a running progress indicator and percentage for the active download.
 - Dependency paths are hardcoded to `/opt/homebrew/bin`.
-- Playlist downloading is disabled; the app expects direct media links.
+- Playlist downloading is supported for YouTube URLs that include a `list=` playlist parameter.

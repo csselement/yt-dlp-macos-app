@@ -52,4 +52,14 @@ struct DownloadItem: Identifiable, Equatable {
         let cleaned = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return cleaned.isEmpty ? url : cleaned
     }
+
+    var allowsPlaylist: Bool {
+        guard let components = URLComponents(string: url) else {
+            return false
+        }
+
+        return components.queryItems?.contains {
+            $0.name.lowercased() == "list" && !($0.value ?? "").isEmpty
+        } ?? false
+    }
 }

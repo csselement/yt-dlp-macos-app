@@ -350,11 +350,16 @@ private extension DownloaderStore {
             "--ffmpeg-location", ffmpegPath,
             "--print", "title:%(title)s",
             "--print", "thumbnail:%(thumbnail)s",
-            "--no-playlist",
             "--newline",
             "--restrict-filenames",
             "-o", outputTemplate
         ]
+
+        if item.allowsPlaylist {
+            args.append("--yes-playlist")
+        } else {
+            args.append("--no-playlist")
+        }
 
         if isRateLimitEnabled {
             args += [
@@ -454,7 +459,7 @@ private extension DownloaderStore {
             normalized.contains("use --cookies") {
             return DownloadFailureDetails(
                 title: "YouTube Bot Check",
-                message: "YouTube is asking to confirm this is not a bot. The batch has been stopped to avoid additional automated requests. Wait before retrying, keep rate-limiting enabled, and if this account/browser is trusted, configure yt-dlp cookies before downloading again.",
+                message: "YouTube is asking to confirm this is not a bot. The batch has been stopped to avoid additional automated requests. Wait before retrying, reduce the batch size, and keep rate-limiting enabled.",
                 stopsBatch: true
             )
         }
