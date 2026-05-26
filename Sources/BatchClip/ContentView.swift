@@ -1,7 +1,8 @@
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
-    @State private var store = DownloaderStore()
+    let store: DownloaderStore
     @State private var linkKind: DownloadKind = .video
 
     var body: some View {
@@ -23,6 +24,16 @@ struct ContentView: View {
                 }
             }
             .background(Color(nsColor: .windowBackgroundColor))
+        }
+        .alert(item: Binding(
+            get: { store.downloadAlert },
+            set: { store.downloadAlert = $0 }
+        )) { alert in
+            Alert(
+                title: Text(alert.title),
+                message: Text(alert.message),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 }
@@ -62,7 +73,7 @@ private struct EntryPanel: View {
                 Text("Links")
                     .font(.headline)
 
-                TextEditor(text: Binding(
+                LinkListEditor(text: Binding(
                     get: { store.pendingText },
                     set: { store.pendingText = $0 }
                 ))
@@ -81,6 +92,19 @@ private struct EntryPanel: View {
                 }
             }
             .pickerStyle(.segmented)
+
+            Toggle(isOn: Binding(
+                get: { store.isRateLimitEnabled },
+                set: { store.isRateLimitEnabled = $0 }
+            )) {
+                Label("Enable rate-limiting", systemImage: "timer")
+            }
+            .toggleStyle(.checkbox)
+            .disabled(store.isRunning || !store.canDisableRateLimit)
+
+            Text(store.rateLimitControlMessage)
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             Button {
                 store.addLinks(kind: linkKind)
@@ -125,8 +149,10 @@ private struct EntryPanel: View {
                 Button {
                     store.cancelBatch()
                 } label: {
-                    Label("Cancel", systemImage: "xmark.circle")
+                    Label("Stop Batch", systemImage: "stop.circle")
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
                 .disabled(!store.isRunning)
             }
         }
@@ -229,10 +255,39 @@ private struct QueueRow: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(item.url)
-                    .font(.callout)
-                    .lineLimit(2)
-                    .textSelection(.enabled)
+                HStack(alignment: .top, spacing: 8) {
+                    if let thumbURL = URL(string: item.thumbnailURL), !item.thumbnailURL.isEmpty {
+                        AsyncImage(url: thumbURL) { phase in
+                            if let image = phase.image {
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            } else if phase.error != nil {
+                                Image(systemName: "photo")
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 48, height: 27)
+                            } else {
+                                ProgressView()
+                                    .controlSize(.mini)
+                                    .frame(width: 48, height: 27)
+                            }
+                        }
+                        .frame(width: 48, height: 27)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.secondary.opacity(0.25), lineWidth: 0.5)
+                        )
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.displayTitle)
+                            .font(.callout)
+                            .lineLimit(2)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
 
                 HStack(spacing: 8) {
                     Text(item.kind.detail)
@@ -262,13 +317,6 @@ private struct QueueRow: View {
                     }
                 }
 
-                if case .failed(let message) = item.status {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .lineLimit(2)
-                        .textSelection(.enabled)
-                }
             }
 
             Spacer()
@@ -317,7 +365,7 @@ private struct StatusIcon: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(store: DownloaderStore())
 }
 
 private extension View {
@@ -341,5 +389,78 @@ private struct UtilitySurface: ViewModifier {
                         .stroke(.separator, lineWidth: 1)
                 }
         }
+    }
+}
+
+private struct LinkListEditor: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let textView = PasteAwareTextView()
+        textView.delegate = context.coordinator
+        textView.isRichText = false
+        textView.drawsBackground = false
+        textView.isAutomaticTextCompletionEnabled = false
+        textView.allowsUndo = true
+        textView.string = text
+        textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        textView.delegate = context.coordinator
+
+        textView.onPasteComplete = { [weak textView] pastedText in
+            guard
+                let textView,
+                let pastedText,
+                !pastedText.isEmpty,
+                !pastedText.hasSuffix("\n"),
+                !pastedText.hasSuffix("\r"),
+                !pastedText.hasSuffix("\r\n")
+            else { return }
+
+            textView.insertText("\n", replacementRange: textView.selectedRange())
+        }
+
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.documentView = textView
+        context.coordinator.textView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        guard let textView = nsView.documentView as? NSTextView else { return }
+        if textView.string != text {
+            textView.string = text
+        }
+        context.coordinator.textView = textView
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        let parent: LinkListEditor
+        weak var textView: NSTextView?
+
+        init(_ parent: LinkListEditor) {
+            self.parent = parent
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            parent.text = textView.string
+        }
+    }
+}
+
+private final class PasteAwareTextView: NSTextView {
+    var onPasteComplete: ((String?) -> Void)?
+
+    override func paste(_ sender: Any?) {
+        let pastedText = NSPasteboard.general.string(forType: .string)
+        super.paste(sender)
+        onPasteComplete?(pastedText)
     }
 }

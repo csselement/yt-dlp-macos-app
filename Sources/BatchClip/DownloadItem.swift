@@ -45,4 +45,11 @@ struct DownloadItem: Identifiable, Equatable {
     var log: String = ""
     var progressPercent: Double? = nil
     var progressText: String = ""
+    var title: String?
+    var thumbnailURL: String = ""
+
+    var displayTitle: String {
+        let cleaned = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return cleaned.isEmpty ? url : cleaned
+    }
 }
