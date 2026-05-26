@@ -7,9 +7,10 @@ ClipBatch is a minimal native macOS app for batch downloading social media video
 The app is designed for a simple workflow:
 
 1. Paste one or more links, one per line.
-2. Choose whether those links should be downloaded as video or audio.
-3. Pick a download folder with Browse.
-4. Start the batch.
+2. Or use File > Open Text File... to load a prepared `.txt` list.
+3. Choose whether those links should be downloaded as video or audio.
+4. Pick a download folder with Browse.
+5. Start the batch.
 
 ## What It Is For
 
@@ -29,7 +30,17 @@ There are no user-facing codec, container, bitrate, or quality settings. This ke
 
 The app downloads batch items sequentially and adds cooldown time between downloads to reduce the chance of platform throttling. It also passes conservative sleep and retry settings to `yt-dlp`.
 
-When a batch contains many queued links, the app shows a rate-limit warning. These safeguards reduce risk, but they cannot guarantee that YouTube or another platform will not throttle, block, or challenge automated download traffic.
+When a batch contains many queued links, the app shows a rate-limit warning. The cooldown status counts down live between downloads. Rate-limiting can be disabled for short batches, but it is forced on for larger queues.
+
+If YouTube or another site returns a bot-check, login challenge, or rate-limit error, the app stops the batch automatically and shows a modal with remediation steps. These safeguards reduce risk, but they cannot guarantee that YouTube or another platform will not throttle, block, or challenge automated download traffic.
+
+## Batch Controls
+
+- Add links manually or import one-link-per-line `.txt` files from the File menu.
+- The link editor moves to a new line after pasted links to speed up list entry.
+- Active downloads show progress percentage and a compact title/thumbnail when that metadata is available from the current download.
+- Stop Batch cancels the active download and prevents the queue from advancing to the next item.
+- File > Stop Batch also cancels an active batch.
 
 ## Requirements
 
