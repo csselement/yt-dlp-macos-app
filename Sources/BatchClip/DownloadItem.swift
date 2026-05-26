@@ -43,4 +43,6 @@ struct DownloadItem: Identifiable, Equatable {
     var kind: DownloadKind
     var status: DownloadStatus = .queued
     var log: String = ""
+    var progressPercent: Double? = nil
+    var progressText: String = ""
 }

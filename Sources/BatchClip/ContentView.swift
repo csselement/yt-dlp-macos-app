@@ -33,7 +33,7 @@ private struct HeaderView: View {
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Batch Downloader")
+                Text("BatchClip")
                     .font(.title2.weight(.semibold))
                 Text("Video saves as H.264 MP4. Audio saves as MP3 320 kbps.")
                     .foregroundStyle(.secondary)
@@ -182,7 +182,7 @@ private struct QueuePanel: View {
             } else {
                 List {
                     ForEach(store.items) { item in
-                        QueueRow(item: item)
+                        QueueRow(item: item, isStarting: store.isStartingNext(item))
                             .padding(.vertical, 6)
                     }
                     .onDelete(perform: store.removeItems)
@@ -220,6 +220,7 @@ private struct RateLimitWarningView: View {
 
 private struct QueueRow: View {
     let item: DownloadItem
+    let isStarting: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -241,6 +242,26 @@ private struct QueueRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+                if isStarting && item.status == .queued {
+                    HStack(spacing: 4) {
+                        ProgressView()
+                            .controlSize(.mini)
+                        Text("Starting...")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if case .running = item.status {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ProgressView(value: item.progressPercent, total: 100)
+                            .progressViewStyle(.linear)
+                        Text(item.progressText.isEmpty ? "Preparing..." : item.progressText)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 if case .failed(let message) = item.status {
                     Text(message)
                         .font(.caption)
@@ -252,7 +273,7 @@ private struct QueueRow: View {
 
             Spacer()
 
-            StatusIcon(status: item.status)
+            StatusIcon(status: item.status, isStarting: isStarting)
         }
     }
 
@@ -268,12 +289,18 @@ private struct QueueRow: View {
 
 private struct StatusIcon: View {
     let status: DownloadStatus
+    let isStarting: Bool
 
     var body: some View {
         Group {
             switch status {
             case .queued:
-                Image(systemName: "circle")
+                if isStarting {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "circle")
+                }
             case .running:
                 ProgressView()
                     .controlSize(.small)

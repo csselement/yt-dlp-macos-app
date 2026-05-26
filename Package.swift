@@ -2,17 +2,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "BatchDownloader",
+    name: "BatchClip",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "BatchDownloader", targets: ["BatchDownloader"])
+        .executable(name: "BatchClip", targets: ["BatchClip"])
     ],
     targets: [
         .executableTarget(
-            name: "BatchDownloader",
-            path: "Sources/BatchDownloader"
+            name: "BatchClip",
+            path: "Sources/BatchClip"
         )
     ]
 )

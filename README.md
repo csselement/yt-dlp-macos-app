@@ -2,7 +2,7 @@
 
 ClipBatch is a minimal native macOS app for batch downloading social media video and audio with `yt-dlp` and `ffmpeg`.
 
-![ClipBatch example UI](docs/images/batchdownloader-ui.png)
+![ClipBatch example UI](docs/images/batchclip-ui.png)
 
 The app is designed for a simple workflow:
 
@@ -63,7 +63,7 @@ To build, launch, and verify the running process:
 The script stages a native app bundle at:
 
 ```text
-dist/BatchDownloader.app
+dist/BatchClip.app
 ```
 
 ## Downloadable Builds
@@ -74,7 +74,7 @@ Prebuilt binaries are published on the GitHub Releases page when available:
 https://github.com/csselement/clipbatch/releases
 ```
 
-The release asset is a zipped macOS app. Unzip it, move `BatchDownloader.app` to Applications if desired, and launch it.
+The release asset is a zipped macOS app. Unzip it, move `BatchClip.app` to Applications if desired, and launch it.
 
 Current binaries are ad-hoc signed but not Apple Developer ID notarized. macOS may show a Gatekeeper warning the first time the app is opened.
 
@@ -90,6 +90,6 @@ To create a release zip locally:
 - Large batches may still trigger platform rate limits, throttling, login prompts, or temporary blocks.
 - Some sites may require cookies, login, or additional `yt-dlp` options that this MVP does not expose.
 - The app does not provide per-link quality controls.
-- The app does not currently show detailed progress percentages per item.
+- The app shows a running progress indicator and percentage for the active download.
 - Dependency paths are hardcoded to `/opt/homebrew/bin`.
 - Playlist downloading is disabled; the app expects direct media links.

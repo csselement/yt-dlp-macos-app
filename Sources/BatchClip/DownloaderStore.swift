@@ -76,6 +76,16 @@ final class DownloaderStore {
         items.removeAll { $0.status == .finished }
     }
 
+    func isStartingNext(_ item: DownloadItem) -> Bool {
+        guard isRunning else { return false }
+        guard !items.contains(where: { if case .running = $0.status { return true } else { return false } }) else {
+            return false
+        }
+
+        let firstPending = items.first(where: { $0.status != .finished })
+        return firstPending?.id == item.id
+    }
+
     func resetFailedAndQueued() {
         guard !isRunning else { return }
         for index in items.indices {
@@ -140,15 +150,20 @@ final class DownloaderStore {
         for (position, index) in queueIndices.enumerated() {
             guard !Task.isCancelled else { return }
             items[index].status = .running
+            items[index].progressPercent = 0
+            items[index].progressText = "0%"
             items[index].log = ""
             globalMessage = "Downloading \(index + 1) of \(items.count)"
 
             do {
-                let output = try await runYTDLP(for: items[index])
+                let output = try await runYTDLP(for: index)
                 items[index].status = .finished
+                items[index].progressPercent = 100
+                items[index].progressText = "100%"
                 items[index].log = output
             } catch {
                 items[index].status = .failed(error.localizedDescription)
+                items[index].progressPercent = nil
                 items[index].log += "\n\(error.localizedDescription)"
             }
 
@@ -161,10 +176,17 @@ final class DownloaderStore {
         globalMessage = "Batch complete"
     }
 
-    private func runYTDLP(for item: DownloadItem) async throws -> String {
+    private func runYTDLP(for index: Int) async throws -> String {
         try await runner.run(
             executablePath: ytDLPPath,
-            arguments: arguments(for: item)
+            arguments: arguments(for: items[index]),
+            onOutput: { [weak self] output in
+                guard let self else { return }
+                Task { @MainActor in
+                    self.items[index].log += output
+                    self.updateProgress(from: output, for: index)
+                }
+            }
         )
     }
 
@@ -188,7 +210,11 @@ actor DownloadRunner {
         activeProcess = nil
     }
 
-    func run(executablePath: String, arguments: [String]) async throws -> String {
+    func run(
+        executablePath: String,
+        arguments: [String],
+        onOutput: @escaping @Sendable (String) -> Void = { _ in }
+    ) async throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = arguments
@@ -201,18 +227,41 @@ actor DownloadRunner {
         process.standardError = pipe
         activeProcess = process
 
-        try process.run()
-        process.waitUntilExit()
-        activeProcess = nil
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8) ?? ""
-
-        if process.terminationStatus != 0 {
-            throw DownloadError.processFailed(output.trimmedFallback("yt-dlp exited with status \(process.terminationStatus)"))
+        let outputCollector = OutputCollector()
+        let outputHandle = pipe.fileHandleForReading
+        outputHandle.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
+            Task { await outputCollector.append(chunk) }
+            onOutput(chunk)
         }
 
-        return output.trimmedFallback("Download completed")
+        try process.run()
+        process.waitUntilExit()
+        outputHandle.readabilityHandler = nil
+        activeProcess = nil
+
+        let remainingData = outputHandle.readDataToEndOfFile()
+        let remaining = String(data: remainingData, encoding: .utf8) ?? ""
+        await outputCollector.append(remaining)
+        if !remaining.isEmpty {
+            onOutput(remaining)
+        }
+        let outputText = await outputCollector.value
+
+        if process.terminationStatus != 0 {
+            throw DownloadError.processFailed(outputText.trimmedFallback("yt-dlp exited with status \(process.terminationStatus)"))
+        }
+
+        return outputText.trimmedFallback("Download completed")
+    }
+}
+
+actor OutputCollector {
+    private(set) var value = ""
+
+    func append(_ chunk: String) {
+        value += chunk
     }
 }
 
@@ -254,6 +303,24 @@ private extension DownloaderStore {
 
         args.append(item.url)
         return args
+    }
+
+    func updateProgress(from output: String, for index: Int) {
+        guard case .running = items[index].status else { return }
+
+        let components = output
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { $0.hasSuffix("%") }
+
+        for part in components.reversed() {
+            let candidate = String(part.dropLast())
+            let normalized = candidate.replacingOccurrences(of: ",", with: ".")
+            if let progress = Double(normalized), (0...100).contains(progress) {
+                items[index].progressPercent = progress
+                items[index].progressText = "\(Int(progress.rounded()))%"
+                return
+            }
+        }
     }
 }
 

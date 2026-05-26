@@ -2,8 +2,8 @@
 set -euo pipefail
 
 VERSION="${1:-0.1.0}"
-APP_NAME="BatchDownloader"
-BUNDLE_ID="com.csselement.BatchDownloader"
+APP_NAME="BatchClip"
+BUNDLE_ID="com.csselement.BatchClip"
 MIN_SYSTEM_VERSION="14.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
