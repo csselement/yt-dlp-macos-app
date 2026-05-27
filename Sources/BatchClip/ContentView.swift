@@ -311,7 +311,7 @@ private struct QueueRow: View {
                     VStack(alignment: .leading, spacing: 4) {
                         ProgressView(value: item.progressPercent, total: 100)
                             .progressViewStyle(.linear)
-                        Text(item.progressText.isEmpty ? "Preparing..." : item.progressText)
+                        Text(runningDetailText)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -332,6 +332,11 @@ private struct QueueRow: View {
         case .finished: .green
         case .failed: .red
         }
+    }
+
+    private var runningDetailText: String {
+        let activity = item.activityText.isEmpty ? "Preparing" : item.activityText
+        return item.progressText.isEmpty ? activity : "\(activity) - \(item.progressText)"
     }
 }
 

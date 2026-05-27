@@ -45,6 +45,7 @@ struct DownloadItem: Identifiable, Equatable {
     var log: String = ""
     var progressPercent: Double? = nil
     var progressText: String = ""
+    var activityText: String = ""
     var title: String?
     var thumbnailURL: String = ""
 

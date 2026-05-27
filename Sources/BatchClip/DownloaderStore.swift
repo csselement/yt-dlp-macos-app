@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Observation
 import UniformTypeIdentifiers
+import UserNotifications
 
 @MainActor
 @Observable
@@ -110,6 +111,7 @@ final class DownloaderStore {
             if case .failed = items[index].status {
                 items[index].status = .queued
                 items[index].log = ""
+                items[index].activityText = ""
             }
         }
     }
@@ -186,6 +188,7 @@ final class DownloaderStore {
         if let index = items.firstIndex(where: { $0.status == .running }) {
             items[index].status = .failed("Cancelled")
             items[index].progressPercent = nil
+            items[index].activityText = "Cancelled"
         }
 
         Task { await runner.cancel() }
@@ -211,6 +214,7 @@ final class DownloaderStore {
             items[index].status = .running
             items[index].progressPercent = 0
             items[index].progressText = "0%"
+            items[index].activityText = "Starting"
             items[index].log = ""
             globalMessage = "Downloading \(index + 1) of \(items.count)"
 
@@ -219,12 +223,14 @@ final class DownloaderStore {
                 items[index].status = .finished
                 items[index].progressPercent = 100
                 items[index].progressText = "100%"
+                items[index].activityText = "Complete"
                 items[index].log = output
             } catch {
                 guard !isCancellationRequested else { return }
                 let failure = downloadFailureDetails(from: error)
                 items[index].status = .failed("Failed")
                 items[index].progressPercent = nil
+                items[index].activityText = "Failed"
                 items[index].log += "\n\(failure.message)"
                 globalMessage = failure.stopsBatch ? "Batch stopped" : "Download failed"
 
@@ -244,6 +250,7 @@ final class DownloaderStore {
 
         if !isCancellationRequested {
             globalMessage = "Batch complete"
+            notifyBatchComplete(downloadCount: queueIndices.count)
         }
     }
 
@@ -255,6 +262,7 @@ final class DownloaderStore {
                 guard let self else { return }
                 Task { @MainActor in
                     self.items[index].log += output
+                    self.updateActivity(from: output, for: index)
                     self.updateProgress(from: output, for: index)
                     self.updateMetadata(from: output, for: index)
                 }
@@ -274,6 +282,21 @@ final class DownloaderStore {
         } catch {
             globalMessage = "Cooldown interrupted"
         }
+    }
+
+    private func notifyBatchComplete(downloadCount: Int) {
+        let content = UNMutableNotificationContent()
+        content.title = "BatchClip"
+        content.body = downloadCount == 1 ? "Download complete." : "\(downloadCount) downloads complete."
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "batch-complete-\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+
+        UNUserNotificationCenter.current().add(request)
     }
 }
 
@@ -410,6 +433,80 @@ private extension DownloaderStore {
                 return
             }
         }
+    }
+
+    func updateActivity(from output: String, for index: Int) {
+        guard case .running = items[index].status else { return }
+
+        for line in output.components(separatedBy: .newlines).reversed() {
+            let activity = activityDescription(for: line)
+            if !activity.isEmpty {
+                items[index].activityText = activity
+                return
+            }
+        }
+    }
+
+    func activityDescription(for line: String) -> String {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowercased = trimmed.lowercased()
+
+        if trimmed.hasPrefix("title:") || trimmed.hasPrefix("thumbnail:") {
+            return "Reading metadata"
+        }
+
+        if lowercased.contains("extracting url") ||
+            lowercased.contains("downloading webpage") ||
+            lowercased.contains("downloading api json") ||
+            lowercased.contains("downloading player") ||
+            lowercased.contains("downloading ios player api json") ||
+            lowercased.contains("downloading android player api json") {
+            return "Grabbing metadata"
+        }
+
+        if lowercased.hasPrefix("[info]") {
+            return "Selecting format"
+        }
+
+        if lowercased.hasPrefix("[download]") {
+            if lowercased.contains("destination:") {
+                return "Starting download"
+            }
+
+            if lowercased.contains("has already been downloaded") ||
+                lowercased.contains("100%") {
+                return "Download complete"
+            }
+
+            return "Downloading"
+        }
+
+        if lowercased.hasPrefix("[merger]") {
+            return "Merging audio and video"
+        }
+
+        if lowercased.hasPrefix("[ffmpeg]") ||
+            lowercased.hasPrefix("[videoconvertor]") {
+            return "Converting video"
+        }
+
+        if lowercased.hasPrefix("[extractaudio]") {
+            return "Extracting audio"
+        }
+
+        if lowercased.hasPrefix("[movefiles]") {
+            return "Moving file"
+        }
+
+        if lowercased.hasPrefix("[exec]") {
+            return "Checking final file"
+        }
+
+        if lowercased.contains("deleting original file") {
+            return "Cleaning up"
+        }
+
+        return ""
     }
 
     func updateMetadata(from output: String, for index: Int) {
