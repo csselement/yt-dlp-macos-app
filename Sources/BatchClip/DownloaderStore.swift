@@ -350,6 +350,7 @@ private extension DownloaderStore {
             "--ffmpeg-location", ffmpegPath,
             "--print", "title:%(title)s",
             "--print", "thumbnail:%(thumbnail)s",
+            "--no-simulate",
             "--newline",
             "--restrict-filenames",
             "-o", outputTemplate
