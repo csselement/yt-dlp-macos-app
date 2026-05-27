@@ -352,6 +352,7 @@ private extension DownloaderStore {
             "--print", "thumbnail:%(thumbnail)s",
             "--no-simulate",
             "--newline",
+            "--progress",
             "--restrict-filenames",
             "-o", outputTemplate
         ]
