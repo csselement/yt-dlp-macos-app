@@ -208,7 +208,12 @@ private struct QueuePanel: View {
             } else {
                 List {
                     ForEach(store.items) { item in
-                        QueueRow(item: item, isStarting: store.isStartingNext(item))
+                        QueueRow(
+                            item: item,
+                            isStarting: store.isStartingNext(item),
+                            canRemove: !store.isRunning,
+                            onRemove: { store.removeItem(id: item.id) }
+                        )
                             .padding(.vertical, 6)
                     }
                     .onDelete(perform: store.removeItems)
@@ -247,6 +252,8 @@ private struct RateLimitWarningView: View {
 private struct QueueRow: View {
     let item: DownloadItem
     let isStarting: Bool
+    let canRemove: Bool
+    let onRemove: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -291,7 +298,7 @@ private struct QueueRow: View {
 
                 HStack(spacing: 8) {
                     Text(item.kind.detail)
-                    Text(item.status.label)
+                    Text(statusText)
                         .foregroundStyle(statusColor)
                 }
                 .font(.caption)
@@ -308,18 +315,26 @@ private struct QueueRow: View {
                 }
 
                 if case .running = item.status {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ProgressView(value: item.progressPercent, total: 100)
-                            .progressViewStyle(.linear)
-                        Text(runningDetailText)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                    ProgressView(value: item.progressPercent, total: 100)
+                        .progressViewStyle(.linear)
                 }
 
             }
 
             Spacer()
+
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Remove from batch")
+            .disabled(!canRemove)
+            .opacity(canRemove ? 0.8 : 0.25)
 
             StatusIcon(status: item.status, isStarting: isStarting)
         }
@@ -334,8 +349,12 @@ private struct QueueRow: View {
         }
     }
 
-    private var runningDetailText: String {
-        let activity = item.activityText.isEmpty ? "Preparing" : item.activityText
+    private var statusText: String {
+        guard case .running = item.status else {
+            return item.status.label
+        }
+
+        let activity = item.activityText.isEmpty ? item.status.label : item.activityText
         return item.progressText.isEmpty ? activity : "\(activity) - \(item.progressText)"
     }
 }

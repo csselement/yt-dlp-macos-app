@@ -90,6 +90,11 @@ final class DownloaderStore {
         items.remove(atOffsets: offsets)
     }
 
+    func removeItem(id: DownloadItem.ID) {
+        guard !isRunning else { return }
+        items.removeAll { $0.id == id }
+    }
+
     func clearFinished() {
         guard !isRunning else { return }
         items.removeAll { $0.status == .finished }
@@ -402,7 +407,6 @@ private extension DownloaderStore {
                 "-f", "bv*[vcodec^=avc1][ext=mp4]+ba[ext=m4a]/b[vcodec^=avc1][ext=mp4]/bv*+ba/b",
                 "-S", "vcodec:h264,ext:mp4:m4a",
                 "--merge-output-format", "mp4",
-                "--recode-video", "mp4",
                 "--exec", "after_move:/bin/sh -c 'file=\"$1\"; codec=\"$(/opt/homebrew/bin/ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=nw=1:nk=1 \"$file\")\"; if [ \"$codec\" = \"h264\" ]; then exit 0; fi; tmp=\"${file%.*}.h264.mp4\"; /opt/homebrew/bin/ffmpeg -y -i \"$file\" -map 0:v:0 -map 0:a? -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 192k -movflags +faststart \"$tmp\" && mv \"$tmp\" \"$file\"' sh {}"
             ]
         case .audio:
